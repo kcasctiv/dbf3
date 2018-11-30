@@ -1,11 +1,12 @@
 package dbf3
 
 import (
-	"errors"
 	"io"
+	"os"
 	"time"
 )
 
+// File presents DBF file interface
 type File interface {
 	Header() Header
 	Fields() []Field
@@ -20,21 +21,42 @@ type File interface {
 	SaveFile(fileName string) error
 }
 
+// New creates new empty DBF file
 func New(cp CodePage) File {
-	// TODO:
-	return nil
+	now := time.Now()
+	return &file{
+		hdr: &header{
+			sign: 0x03, // dbase 3 without DBT
+			hlen: 33,   // header + terminator
+			rlen: 1,    // no fields + deletion flag
+			cp:   byte(cp),
+			lmod: [3]byte{
+				byte(now.Year() - 1900),
+				byte(now.Month()),
+				byte(now.Day()),
+			},
+		},
+	}
 }
 
+// Open opens DBF from reader
 func Open(r io.Reader) (File, error) {
 	// TODO:
 	return nil, nil
 }
 
+// OpenFile opens DBF from file
 func OpenFile(fileName string) (File, error) {
-	// TODO:
-	return nil, nil
+	file, err := os.Open(fileName)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return Open(file)
 }
 
+// Header presents DBF header interface
 type Header interface {
 	Signature() byte
 	Changed() time.Time
@@ -44,6 +66,7 @@ type Header interface {
 	CP() CodePage
 }
 
+// Field presents DBF field descriptor
 type Field interface {
 	Name() string
 	Type() FieldType
@@ -51,8 +74,10 @@ type Field interface {
 	Dec() byte
 }
 
+// FieldType presents type of DBF field
 type FieldType byte
 
+// Supported field types
 const (
 	Character FieldType = 'C'
 	Date      FieldType = 'D'
@@ -61,6 +86,7 @@ const (
 	Numeric   FieldType = 'N'
 )
 
+// Row presents DBF row interface
 type Row interface {
 	Deleted() bool
 	Del() error
@@ -68,121 +94,5 @@ type Row interface {
 	Set(field, value string) error
 }
 
+// CodePage presents DBF code page
 type CodePage byte
-
-type file struct {
-	hdr *header  // Заголовок
-	fld []*field // Поля
-	dt  []byte   // Данные
-}
-
-func (f *file) Fields() []Field {
-	fields := make([]Field, len(f.fld))
-
-	for idx := range f.fld {
-		fields[idx] = f.fld[idx]
-	}
-
-	return fields
-}
-
-func (f *file) Row(idx int) (Row, error) {
-	if f.hdr.rows <= uint32(idx) {
-		return nil, errors.New("Out of range")
-	}
-
-	offset := int(f.hdr.rlen) * idx
-	return &row{fld: f.fld, dt: f.dt[offset : offset+int(f.hdr.rlen)]}, nil
-}
-
-type header struct {
-	sign byte
-	lmod [3]byte
-	rows uint32
-	hlen uint16
-	rlen uint16
-	_    [17]byte
-	cp   byte
-	_    byte
-}
-
-type field struct {
-	name [11]byte
-	typ  byte
-	_    [4]byte
-	len  byte
-	dec  byte
-	_    [14]byte
-}
-
-type row struct {
-	fld []*field
-	dt  []byte
-}
-
-const deleted = 0x2A
-
-func (r *row) Deleted() bool {
-	return r.dt[0] == deleted
-}
-
-func (r *row) Del() error {
-	// TODO: check is already deleted
-	r.dt[0] = deleted
-	return nil
-}
-
-func (r *row) Value(fld string) (string, error) {
-	var offset int
-	for _, f := range r.fld {
-		// TODO: ignore case
-		if f.Name() != fld {
-			offset += int(f.Len())
-		}
-
-		// TODO: encoding
-		return string(r.dt[offset : offset+int(f.Len())]), nil
-	}
-
-	return "", errors.New("Field not found")
-}
-
-func (r *row) Set(fld, val string) error {
-	var offset int
-	for _, f := range r.fld {
-		// TODO: ignore case
-		if f.Name() != fld {
-			offset += int(f.Len())
-		}
-
-		if len(val) > f.Len() {
-			return errors.New("Field maximum length exceeded")
-		}
-
-		// TODO: encoding
-		copy(r.dt[offset:], []byte(val))
-
-		return nil
-	}
-
-	return errors.New("Field not found")
-}
-
-func (f *field) Name() string {
-	// TODO: encoding
-	return string(f.name[:])
-}
-
-func (f *field) Type() FieldType {
-	return FieldType(f.typ)
-}
-
-func (f *field) Len() int {
-	// TODO: full length
-	return int(f.len)
-}
-
-func (f *field) Dec() byte {
-	// TODO:
-	return f.dec
-}
