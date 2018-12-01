@@ -1,5 +1,11 @@
 package dbf3
 
+import (
+	"bytes"
+	"encoding/binary"
+	"strings"
+)
+
 type field struct {
 	name [11]byte
 	typ  byte
@@ -10,8 +16,7 @@ type field struct {
 }
 
 func (f *field) Name() string {
-	// TODO: encoding
-	return string(f.name[:])
+	return strings.Trim(string(f.name[:]), string([]byte{0}))
 }
 
 func (f *field) Type() FieldType {
@@ -19,11 +24,18 @@ func (f *field) Type() FieldType {
 }
 
 func (f *field) Len() int {
-	// TODO: full length
-	return int(f.len)
+	switch FieldType(f.typ) {
+	case Character:
+		// up to 64kb
+		buf := bytes.NewBuffer([]byte{f.len, f.dec})
+		var length uint16
+		binary.Read(buf, binary.BigEndian, &length)
+		return int(length)
+	default:
+		return int(f.len)
+	}
 }
 
 func (f *field) Dec() byte {
-	// TODO:
 	return f.dec
 }

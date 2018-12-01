@@ -13,6 +13,7 @@ type File interface {
 	Row(idx int) (row Row, err error)
 	NewRow() (idx int, err error)
 	DelRow(idx int) error
+	Deleted(idx int) (bool, error)
 	AddField(name string, typ FieldType, length, dec byte) error
 	DelField(field string) error
 	Value(row int, field string) (value string, err error)
@@ -82,7 +83,6 @@ const (
 	Character FieldType = 'C'
 	Date      FieldType = 'D'
 	Logical   FieldType = 'L'
-	Memo      FieldType = 'M'
 	Numeric   FieldType = 'N'
 )
 
@@ -96,3 +96,8 @@ type Row interface {
 
 // CodePage presents DBF code page
 type CodePage byte
+
+// Supported code pages
+const (
+	CP866 CodePage = 0x65
+)

@@ -32,8 +32,7 @@ func (f *file) Row(idx int) (Row, error) {
 		return nil, errors.New("Out of range")
 	}
 
-	offset := int(f.hdr.rlen) * idx
-	return &row{fld: f.fld, dt: f.dt[offset : offset+int(f.hdr.rlen)]}, nil
+	return &row{f, idx}, nil
 }
 
 func (f *file) NewRow() (int, error) {
@@ -60,6 +59,15 @@ func (f *file) DelRow(idx int) error {
 	return nil
 }
 
+func (f *file) Deleted(idx int) (bool, error) {
+	if idx < 0 || idx >= int(f.hdr.rows) {
+		return false, errors.New("Out of range")
+	}
+
+	dtidx := idx * int(f.hdr.rlen)
+	return f.dt[dtidx] == deleted, nil
+}
+
 func (f *file) AddField(name string, typ FieldType, length, dec byte) error {
 	//TODO:
 	return errors.New("Not implemeted")
@@ -71,7 +79,18 @@ func (f *file) DelField(field string) error {
 }
 
 func (f *file) Value(row int, field string) (string, error) {
+	if row < 0 || row >= int(f.hdr.rows) {
+		return "", errors.New("Out of range")
+	}
+
+	// foffset, err := f.fieldOffset(field)
+	// if err != nil {
+	// 	return "", err
+	// }
+	// roffset := row * int(f.hdr.rlen)
+
 	// TODO:
+
 	return "", errors.New("Not implemented")
 }
 
@@ -93,4 +112,17 @@ func (f *file) SaveFile(fileName string) error {
 	defer file.Close()
 
 	return f.Save(file)
+}
+
+func (f *file) fieldOffset(name string) (int, error) {
+	offset := 1
+	for _, fld := range f.fld {
+		if fld.Name() != name {
+			offset += fld.Len()
+		}
+
+		return offset, nil
+	}
+
+	return 0, errors.New("Field not found")
 }
