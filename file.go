@@ -1,6 +1,8 @@
 package dbf3
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"io"
 	"math"
@@ -100,8 +102,29 @@ func (f *file) Set(row int, field, value string) error {
 }
 
 func (f *file) Save(w io.Writer) error {
-	//TODO:
-	return errors.New("Not implemeted")
+	err := binary.Write(w, binary.LittleEndian, f.hdr)
+	if err != nil {
+		return err
+	}
+
+	for _, fld := range f.fld {
+		err := binary.Write(w, binary.LittleEndian, fld)
+		if err != nil {
+			return err
+		}
+	}
+
+	// header block terminator
+	if _, err := w.Write([]byte{0x0d}); err != nil {
+		return err
+	}
+
+	data := bytes.NewBuffer(f.dt)
+	if _, err := data.WriteTo(w); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (f *file) SaveFile(fileName string) error {

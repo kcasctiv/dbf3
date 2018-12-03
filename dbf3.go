@@ -40,6 +40,7 @@ func New(cp CodePage) File {
 				byte(now.Day()),
 			},
 		},
+		dt: []byte{0x1a}, // EOF only
 	}
 }
 
