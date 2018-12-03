@@ -25,5 +25,5 @@ func (r *row) Set(fld, val string) error {
 }
 
 func (r *row) offset() int {
-	return int(r.f.hdr.rlen) * r.idx
+	return int(r.f.hdr.RL) * r.idx
 }

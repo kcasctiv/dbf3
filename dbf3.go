@@ -1,6 +1,9 @@
 package dbf3
 
 import (
+	"bytes"
+	"encoding/binary"
+	"errors"
 	"io"
 	"os"
 	"time"
@@ -27,11 +30,11 @@ func New(cp CodePage) File {
 	now := time.Now()
 	return &file{
 		hdr: &header{
-			sign: 0x03, // dbase 3 without DBT
-			hlen: 33,   // header + terminator
-			rlen: 1,    // no fields + deletion flag
-			cp:   byte(cp),
-			lmod: [3]byte{
+			SG: 0x03, // dbase 3 without DBT
+			HL: 33,   // header + terminator
+			RL: 1,    // no fields + deletion flag
+			CP: byte(cp),
+			LM: [3]byte{
 				byte(now.Year() - 1900),
 				byte(now.Month()),
 				byte(now.Day()),
@@ -42,8 +45,55 @@ func New(cp CodePage) File {
 
 // Open opens DBF from reader
 func Open(r io.Reader) (File, error) {
-	// TODO:
-	return nil, nil
+	var hdr header
+	if err := binary.Read(r, binary.LittleEndian, &hdr); err != nil {
+		return nil, err
+	}
+
+	flds := make([]*field, (hdr.HLen()-33)/32)
+	for idx := range flds {
+		var fld field
+		err := binary.Read(r, binary.LittleEndian, &fld)
+		if err != nil {
+			return nil, err
+		}
+		flds[idx] = &fld
+	}
+
+	var term byte
+	err := binary.Read(r, binary.LittleEndian, &term)
+	if err != nil {
+		return nil, err
+	}
+	if term != 0x0D {
+		return nil, errors.New("not expected header terminator")
+	}
+
+	var buf [512]byte
+	data := bytes.NewBuffer(nil)
+	for {
+		n, err := r.Read(buf[:])
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		if _, err := data.Write(buf[:n]); err != nil {
+			return nil, err
+		}
+	}
+
+	explen := hdr.RLen()*hdr.Rows() + 1
+	if data.Len() != explen {
+		return nil, errors.New("not expected length of records block")
+	}
+
+	return &file{
+		hdr: &hdr,
+		fld: flds,
+		dt:  data.Bytes(),
+	}, nil
 }
 
 // OpenFile opens DBF from file
@@ -64,7 +114,7 @@ type Header interface {
 	Rows() int
 	HLen() int
 	RLen() int
-	CP() CodePage
+	CodePage() CodePage
 }
 
 // Field presents DBF field descriptor

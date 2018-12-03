@@ -28,7 +28,7 @@ func (f *file) Fields() []Field {
 }
 
 func (f *file) Row(idx int) (Row, error) {
-	if idx < 0 || f.hdr.rows <= uint32(idx) {
+	if idx < 0 || f.hdr.RW <= uint32(idx) {
 		return nil, errors.New("Out of range")
 	}
 
@@ -36,22 +36,22 @@ func (f *file) Row(idx int) (Row, error) {
 }
 
 func (f *file) NewRow() (int, error) {
-	if f.hdr.rows == math.MaxUint32 {
+	if f.hdr.RW == math.MaxUint32 {
 		return 0, errors.New("Cannot add more rows")
 	}
-	r := make([]byte, f.hdr.rlen)
+	r := make([]byte, f.hdr.RL)
 	r[0] = valid
 	f.dt = append(f.dt, r...)
-	f.hdr.rows++
-	return int(f.hdr.rows) - 1, nil
+	f.hdr.RW++
+	return int(f.hdr.RW) - 1, nil
 }
 
 func (f *file) DelRow(idx int) error {
-	if idx < 0 || idx >= int(f.hdr.rows) {
+	if idx < 0 || idx >= int(f.hdr.RW) {
 		return errors.New("Out of range")
 	}
 
-	dtidx := idx * int(f.hdr.rlen)
+	dtidx := idx * int(f.hdr.RL)
 	if f.dt[dtidx] == deleted {
 		return errors.New("Already deleted")
 	}
@@ -60,11 +60,11 @@ func (f *file) DelRow(idx int) error {
 }
 
 func (f *file) Deleted(idx int) (bool, error) {
-	if idx < 0 || idx >= int(f.hdr.rows) {
+	if idx < 0 || idx >= int(f.hdr.RW) {
 		return false, errors.New("Out of range")
 	}
 
-	dtidx := idx * int(f.hdr.rlen)
+	dtidx := idx * int(f.hdr.RL)
 	return f.dt[dtidx] == deleted, nil
 }
 
@@ -79,7 +79,7 @@ func (f *file) DelField(field string) error {
 }
 
 func (f *file) Value(row int, field string) (string, error) {
-	if row < 0 || row >= int(f.hdr.rows) {
+	if row < 0 || row >= int(f.hdr.RW) {
 		return "", errors.New("Out of range")
 	}
 
