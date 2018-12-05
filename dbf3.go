@@ -19,7 +19,7 @@ type File interface {
 	Deleted(idx int) (bool, error)
 	AddField(name string, typ FieldType, length, dec byte) error
 	DelField(field string) error
-	Value(row int, field string) (value string, err error)
+	Get(row int, field string) (value string, err error)
 	Set(row int, field, value string) error
 	Save(io.Writer) error
 	SaveFile(fileName string) error
@@ -141,7 +141,7 @@ const (
 type Row interface {
 	Deleted() bool
 	Del() error
-	Value(field string) (value string, err error)
+	Get(field string) (value string, err error)
 	Set(field, value string) error
 }
 

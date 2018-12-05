@@ -12,7 +12,7 @@ import (
 type file struct {
 	hdr *header  // Header
 	fld []*field // Fields
-	dt  []byte   // Rows
+	dt  []byte   // Rows + EOF
 }
 
 func (f *file) Header() Header {
@@ -31,7 +31,7 @@ func (f *file) Fields() []Field {
 
 func (f *file) Row(idx int) (Row, error) {
 	if idx < 0 || f.hdr.RW <= uint32(idx) {
-		return nil, errors.New("Out of range")
+		return nil, errors.New("out of range")
 	}
 
 	return &row{f, idx}, nil
@@ -39,7 +39,7 @@ func (f *file) Row(idx int) (Row, error) {
 
 func (f *file) NewRow() (int, error) {
 	if f.hdr.RW == math.MaxUint32 {
-		return 0, errors.New("Cannot add more rows")
+		return 0, errors.New("cannot add more rows")
 	}
 	r := make([]byte, f.hdr.RL)
 	r[0] = valid
@@ -50,12 +50,12 @@ func (f *file) NewRow() (int, error) {
 
 func (f *file) DelRow(idx int) error {
 	if idx < 0 || idx >= int(f.hdr.RW) {
-		return errors.New("Out of range")
+		return errors.New("out of range")
 	}
 
 	dtidx := idx * int(f.hdr.RL)
 	if f.dt[dtidx] == deleted {
-		return errors.New("Already deleted")
+		return errors.New("already deleted")
 	}
 	f.dt[dtidx] = deleted
 	return nil
@@ -63,7 +63,7 @@ func (f *file) DelRow(idx int) error {
 
 func (f *file) Deleted(idx int) (bool, error) {
 	if idx < 0 || idx >= int(f.hdr.RW) {
-		return false, errors.New("Out of range")
+		return false, errors.New("out of range")
 	}
 
 	dtidx := idx * int(f.hdr.RL)
@@ -80,17 +80,10 @@ func (f *file) DelField(field string) error {
 	return errors.New("Not implemeted")
 }
 
-func (f *file) Value(row int, field string) (string, error) {
+func (f *file) Get(row int, field string) (string, error) {
 	if row < 0 || row >= int(f.hdr.RW) {
-		return "", errors.New("Out of range")
+		return "", errors.New("out of range")
 	}
-
-	// foffset, err := f.fieldOffset(field)
-	// if err != nil {
-	// 	return "", err
-	// }
-	// roffset := row * int(f.hdr.rlen)
-
 	// TODO:
 
 	return "", errors.New("Not implemented")
@@ -147,5 +140,5 @@ func (f *file) fieldOffset(name string) (int, error) {
 		return offset, nil
 	}
 
-	return 0, errors.New("Field not found")
+	return 0, errors.New("field not found")
 }
