@@ -7,16 +7,25 @@ import (
 	"io"
 	"math"
 	"os"
+	"strings"
 
 	"github.com/axgle/mahonia"
 )
 
+const (
+	eof   byte = 0x1a
+	hterm byte = 0x0d
+)
+
 type file struct {
+	// general data
 	hdr *header  // Header
 	fld []*field // Fields
 	dt  []byte   // Rows + EOF
-	enc mahonia.Encoder
-	dec mahonia.Decoder
+
+	fldmap map[string]int
+	enc    mahonia.Encoder
+	dec    mahonia.Decoder
 }
 
 func (f *file) Header() Header {
@@ -47,7 +56,16 @@ func (f *file) NewRow() (int, error) {
 	}
 	r := make([]byte, f.hdr.RL)
 	r[0] = valid
-	f.dt = append(f.dt, r...)
+	if cap(f.dt)-len(f.dt) < len(r) {
+		dt := make([]byte, len(f.dt)+len(r))
+		copy(dt, f.dt[:len(f.dt)-1])
+		copy(dt[len(f.dt)-1:], r)
+		dt[len(dt)-1] = eof
+		f.dt = dt
+	} else {
+		f.dt = append(f.dt[:len(f.dt)-1], r...)
+		f.dt = append(f.dt, eof)
+	}
 	f.hdr.RW++
 	return int(f.hdr.RW) - 1, nil
 }
@@ -85,12 +103,19 @@ func (f *file) DelField(field string) error {
 }
 
 func (f *file) Get(row int, field string) (string, error) {
-	if row < 0 || row >= int(f.hdr.RW) {
+	if row < 0 || row >= f.hdr.Rows() {
 		return "", errors.New("out of range")
 	}
-	// TODO:
 
-	return "", errors.New("Not implemented")
+	fldIdx, ok := f.fldmap[field]
+	if !ok {
+		return "", errors.New("field not found")
+	}
+
+	fld := f.fld[fldIdx]
+	offset := row*f.hdr.RLen() + fld.offset
+	val := strings.TrimSpace(string(f.dt[offset : offset+fld.Len()]))
+	return f.dec.ConvertString(val), nil
 }
 
 func (f *file) Set(row int, field, value string) error {
@@ -112,7 +137,7 @@ func (f *file) Save(w io.Writer) error {
 	}
 
 	// header block terminator
-	if _, err := w.Write([]byte{0x0d}); err != nil {
+	if _, err := w.Write([]byte{hterm}); err != nil {
 		return err
 	}
 
@@ -132,17 +157,4 @@ func (f *file) SaveFile(fileName string) error {
 	defer file.Close()
 
 	return f.Save(file)
-}
-
-func (f *file) fieldOffset(name string) (int, error) {
-	offset := 1
-	for _, fld := range f.fld {
-		if fld.Name() != name {
-			offset += fld.Len()
-		}
-
-		return offset, nil
-	}
-
-	return 0, errors.New("field not found")
 }

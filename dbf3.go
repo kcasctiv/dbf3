@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/axgle/mahonia"
 )
 
 // File presents DBF file interface
@@ -28,6 +30,7 @@ type File interface {
 // New creates new empty DBF file
 func New(lang LangID) File {
 	now := time.Now()
+	charset := lang.Charset()
 	return &file{
 		hdr: &header{
 			SG: 0x03, // dbase 3 without DBT
@@ -40,7 +43,10 @@ func New(lang LangID) File {
 				byte(now.Day()),
 			},
 		},
-		dt: []byte{0x1a}, // EOF only
+		dt:     []byte{eof}, // EOF only
+		fldmap: make(map[string]int),
+		enc:    mahonia.NewEncoder(charset),
+		dec:    mahonia.NewDecoder(charset),
 	}
 }
 
@@ -52,13 +58,18 @@ func Open(r io.Reader) (File, error) {
 	}
 
 	flds := make([]*field, (hdr.HLen()-33)/32)
+	fldmap := make(map[string]int)
+	fldOffset := 1 // fields starts after deletion flag
+	var fd fieldData
 	for idx := range flds {
-		var fld field
-		err := binary.Read(r, binary.LittleEndian, &fld)
+		err := binary.Read(r, binary.LittleEndian, &fd)
 		if err != nil {
 			return nil, err
 		}
-		flds[idx] = &fld
+
+		flds[idx] = newField(fd, idx, fldOffset)
+		fldmap[flds[idx].Name()] = idx
+		fldOffset += flds[idx].Len()
 	}
 
 	var term byte
@@ -90,10 +101,14 @@ func Open(r io.Reader) (File, error) {
 		return nil, errors.New("not expected length of records block")
 	}
 
+	charset := hdr.LangID().Charset()
 	return &file{
-		hdr: &hdr,
-		fld: flds,
-		dt:  data.Bytes(),
+		hdr:    &hdr,
+		fld:    flds,
+		dt:     data.Bytes(),
+		fldmap: fldmap,
+		enc:    mahonia.NewEncoder(charset),
+		dec:    mahonia.NewDecoder(charset),
 	}, nil
 }
 
