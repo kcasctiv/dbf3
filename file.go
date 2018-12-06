@@ -7,12 +7,16 @@ import (
 	"io"
 	"math"
 	"os"
+
+	"github.com/axgle/mahonia"
 )
 
 type file struct {
 	hdr *header  // Header
 	fld []*field // Fields
 	dt  []byte   // Rows + EOF
+	enc mahonia.Encoder
+	dec mahonia.Decoder
 }
 
 func (f *file) Header() Header {
