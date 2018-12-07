@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/axgle/mahonia"
 )
@@ -28,8 +29,15 @@ type file struct {
 	dec    mahonia.Decoder
 }
 
-func (f *file) Header() Header {
-	return f.hdr
+func (f *file) Rows() int          { return int(f.hdr.RW) }
+func (f *file) RLen() int          { return int(f.hdr.RL) }
+func (f *file) LangID() LangID     { return LangID(f.hdr.LD) }
+func (f *file) Changed() time.Time { return f.hdr.changed() }
+
+func (f *file) SetLangID(lang LangID) {
+	charset := charsets[codepages[lang]]
+	f.enc = mahonia.NewEncoder(charset)
+	f.dec = mahonia.NewDecoder(charset)
 }
 
 func (f *file) Fields() []Field {
@@ -67,6 +75,7 @@ func (f *file) NewRow() (int, error) {
 		f.dt = append(f.dt, eof)
 	}
 	f.hdr.RW++
+	f.hdr.updateChanged()
 	return int(f.hdr.RW) - 1, nil
 }
 
@@ -80,6 +89,7 @@ func (f *file) DelRow(idx int) error {
 		return errors.New("already deleted")
 	}
 	f.dt[dtidx] = deleted
+	f.hdr.updateChanged()
 	return nil
 }
 
@@ -98,12 +108,33 @@ func (f *file) AddField(name string, typ FieldType, length, dec byte) error {
 }
 
 func (f *file) DelField(field string) error {
-	//TODO:
-	return errors.New("Not implemeted")
+	fldIdx, ok := f.fldmap[field]
+	if !ok {
+		return errors.New("field not found")
+	}
+
+	fld := f.fld[fldIdx]
+	buf := make([]byte, len(f.dt)-fld.Len()*f.Rows())
+	var bufOffset int
+	var rowOffset int
+	for i := 0; i < f.Rows(); i++ {
+		rowOffset = i * f.RLen()
+		copy(buf[bufOffset:], f.dt[rowOffset:rowOffset+fld.offset])
+		copy(buf[bufOffset+fld.offset:], f.dt[rowOffset+fld.offset+fld.Len():rowOffset+f.RLen()])
+		bufOffset += f.RLen() - fld.Len()
+	}
+	buf[len(buf)-1] = eof
+	delete(f.fldmap, field)
+	copy(f.fld[fldIdx:], f.fld[fldIdx+1:])
+	f.fld = f.fld[:len(f.fld)-1]
+	f.hdr.HL -= 32
+	f.hdr.RL -= uint16(fld.Len())
+	f.dt = buf
+	return nil
 }
 
 func (f *file) Get(row int, field string) (string, error) {
-	if row < 0 || row >= f.hdr.Rows() {
+	if row < 0 || row >= f.Rows() {
 		return "", errors.New("out of range")
 	}
 
@@ -113,14 +144,33 @@ func (f *file) Get(row int, field string) (string, error) {
 	}
 
 	fld := f.fld[fldIdx]
-	offset := row*f.hdr.RLen() + fld.offset
+	offset := row*f.RLen() + fld.offset
 	val := strings.TrimSpace(string(f.dt[offset : offset+fld.Len()]))
 	return f.dec.ConvertString(val), nil
 }
 
 func (f *file) Set(row int, field, value string) error {
-	//TODO:
-	return errors.New("Not implemeted")
+	if row < 0 || row >= f.Rows() {
+		return errors.New("out of range")
+	}
+
+	fldIdx, ok := f.fldmap[field]
+	if !ok {
+		return errors.New("field not found")
+	}
+
+	fld := f.fld[fldIdx]
+
+	cval := f.enc.ConvertString(value)
+	if len(cval) > fld.Len() {
+		return errors.New("value larger than the field length")
+	}
+
+	//TODO: types check
+
+	offset := row*f.RLen() + fld.offset
+	copy(f.dt[offset:], []byte(cval))
+	return nil
 }
 
 func (f *file) Save(w io.Writer) error {

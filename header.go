@@ -1,6 +1,9 @@
 package dbf3
 
-import "time"
+import (
+	"encoding/binary"
+	"time"
+)
 
 type header struct {
 	SG byte     // signature
@@ -13,15 +16,27 @@ type header struct {
 	_  [2]byte  // reserved
 }
 
-func (h *header) Signature() byte { return h.SG }
-func (h *header) Rows() int       { return int(h.RW) }
-func (h *header) HLen() int       { return int(h.HL) }
-func (h *header) RLen() int       { return int(h.RL) }
-func (h *header) LangID() LangID  { return LangID(h.LD) }
+func readHeader(buf []byte) header {
+	var h header
+	h.SG = buf[0]
+	copy(h.LM[:], buf[1:4])
+	h.RW = binary.LittleEndian.Uint32(buf[4:8])
+	h.HL = binary.LittleEndian.Uint16(buf[8:10])
+	h.RL = binary.LittleEndian.Uint16(buf[10:12])
+	h.LD = buf[29]
+	return h
+}
 
-func (h *header) Changed() time.Time {
+func (h *header) changed() time.Time {
 	return time.Date(
 		int(h.LM[0])+1900, time.Month(h.LM[1]),
 		int(h.LM[2]), 0, 0, 0, 0, time.Local,
 	)
+}
+
+func (h *header) updateChanged() {
+	now := time.Now()
+	h.LM[0] = byte(now.Year() - 1900)
+	h.LM[1] = byte(now.Month())
+	h.LM[2] = byte(now.Day())
 }

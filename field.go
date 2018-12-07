@@ -14,6 +14,11 @@ type field struct {
 	len    int    // full length
 }
 
+func (f *field) Name() string    { return f.name }
+func (f *field) Type() FieldType { return FieldType(f.dt.TP) }
+func (f *field) Len() int        { return f.len }
+func (f *field) Dec() byte       { return f.dt.DC }
+
 type fieldData struct {
 	NM [11]byte // name
 	TP byte     // type
@@ -23,11 +28,23 @@ type fieldData struct {
 	_  [14]byte // reserved
 }
 
+func readFieldData(buf []byte) fieldData {
+	var fd fieldData
+	copy(fd.NM[:], buf[:11])
+	fd.TP = buf[11]
+	fd.LN = buf[16]
+	fd.DC = buf[17]
+	return fd
+}
+
 func newField(dt fieldData, idx int, offset int) *field {
 	var length uint16
 	switch FieldType(dt.TP) {
 	case Character:
 		// up to 64kb
+		// (theoretically, in fact up to 32kb,
+		// because max length of row is 64kb
+		// and we need at least 1 byte for deletion flag)
 		buf := bytes.NewBuffer([]byte{dt.LN, dt.DC})
 		binary.Read(buf, binary.LittleEndian, &length)
 	default:
@@ -41,8 +58,3 @@ func newField(dt fieldData, idx int, offset int) *field {
 		len:    int(length),
 	}
 }
-
-func (f *field) Name() string    { return f.name }
-func (f *field) Type() FieldType { return FieldType(f.dt.TP) }
-func (f *field) Len() int        { return f.len }
-func (f *field) Dec() byte       { return f.dt.DC }
