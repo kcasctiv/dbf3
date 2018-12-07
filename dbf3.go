@@ -14,9 +14,10 @@ import (
 type File interface {
 	Changed() time.Time
 	Rows() int
+	HLen() int
 	RLen() int
-	LangID() LangID
-	SetLangID(lang LangID)
+	Lang() LangID
+	SetLang(lang LangID)
 	Fields() []Field
 	Row(idx int) (row Row, err error)
 	NewRow() (idx int, err error)
@@ -35,67 +36,67 @@ func New(lang LangID) File {
 	now := time.Now()
 	charset := lang.Charset()
 	return &file{
-		hdr: &header{
-			SG: 0x03, // dbase 3 without DBT
-			HL: 33,   // header + terminator
-			RL: 1,    // no fields + deletion flag
-			LD: byte(lang),
-			LM: [3]byte{
+		header: header{
+			signature: 0x03, // dbase 3 without DBT
+			hlen:      33,   // header + terminator
+			rlen:      1,    // no fields + deletion flag
+			lang:      byte(lang),
+			changed: [3]byte{
 				byte(now.Year() - 1900),
 				byte(now.Month()),
 				byte(now.Day()),
 			},
 		},
-		dt:     []byte{eof}, // EOF only
-		fldmap: make(map[string]int),
-		enc:    mahonia.NewEncoder(charset),
-		dec:    mahonia.NewDecoder(charset),
+		data:      []byte{eof}, // EOF only
+		fieldsIdx: make(map[string]int),
+		encoder:   mahonia.NewEncoder(charset),
+		decoder:   mahonia.NewDecoder(charset),
 	}
 }
 
 // Open opens DBF from reader
-func Open(r io.Reader) (File, error) {
-	br := bufio.NewReader(r)
+func Open(rd io.Reader) (File, error) {
+	r := bufio.NewReader(rd)
 	buf := make([]byte, 32)
-	if _, err := io.ReadFull(br, buf); err != nil {
+	if _, err := io.ReadFull(r, buf); err != nil {
 		return nil, err
 	}
 	hdr := readHeader(buf)
 
-	flds := make([]*field, (int(hdr.HL)-33)/32)
-	fldmap := make(map[string]int)
-	fldOffset := 1 // fields starts after deletion flag
-	var fd fieldData
-	buf = make([]byte, int(hdr.HL)-32)
-	if _, err := io.ReadFull(br, buf); err != nil {
+	fields := make([]*field, (int(hdr.hlen)-33)/32)
+	fieldsIdx := make(map[string]int)
+	offset := 1 // fields starts after deletion flag
+	var fd fieldDescr
+	buf = make([]byte, int(hdr.hlen)-32)
+	if _, err := io.ReadFull(r, buf); err != nil {
 		return nil, err
 	}
-	for idx := range flds {
-		fd = readFieldData(buf[idx*32:])
+	for idx := range fields {
+		fd.readFrom(buf[idx*32:])
 
-		flds[idx] = newField(fd, idx, fldOffset)
-		fldmap[flds[idx].Name()] = idx
-		fldOffset += flds[idx].Len()
+		fields[idx] = newField(fd, idx, offset)
+		fieldsIdx[fields[idx].Name()] = idx
+		offset += fields[idx].Len()
 	}
 
-	term := buf[len(flds)*32]
-	if term != 0x0D {
+	term := buf[len(fields)*32]
+	if term != hterm {
 		return nil, errors.New("not expected header terminator")
 	}
 
-	buf = make([]byte, int(hdr.RL)*int(hdr.RW)+1)
-	if _, err := io.ReadFull(br, buf); err != nil {
+	buf = make([]byte, int(hdr.rlen)*int(hdr.rows)+1)
+	if _, err := io.ReadFull(r, buf); err != nil {
 		return nil, err
 	}
 
-	charset := LangID(hdr.LD).Charset()
+	charset := LangID(hdr.lang).Charset()
 	return &file{
-		hdr:    &hdr,
-		fld:    flds,
-		dt:     buf,
-		fldmap: fldmap,
-		enc:    mahonia.NewEncoder(charset),
-		dec:    mahonia.NewDecoder(charset),
+		header:    hdr,
+		fields:    fields,
+		data:      buf,
+		fieldsIdx: fieldsIdx,
+		encoder:   mahonia.NewEncoder(charset),
+		decoder:   mahonia.NewDecoder(charset),
 	}, nil
 }
 

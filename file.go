@@ -1,8 +1,6 @@
 package dbf3
 
 import (
-	"bytes"
-	"encoding/binary"
 	"errors"
 	"io"
 	"math"
@@ -20,38 +18,39 @@ const (
 
 type file struct {
 	// general data
-	hdr *header  // Header
-	fld []*field // Fields
-	dt  []byte   // Rows + EOF
+	header header   // Header
+	fields []*field // Fields
+	data   []byte   // Rows + EOF
 
-	fldmap map[string]int
-	enc    mahonia.Encoder
-	dec    mahonia.Decoder
+	fieldsIdx map[string]int
+	encoder   mahonia.Encoder
+	decoder   mahonia.Decoder
 }
 
-func (f *file) Rows() int          { return int(f.hdr.RW) }
-func (f *file) RLen() int          { return int(f.hdr.RL) }
-func (f *file) LangID() LangID     { return LangID(f.hdr.LD) }
-func (f *file) Changed() time.Time { return f.hdr.changed() }
+func (f *file) Rows() int          { return int(f.header.rows) }
+func (f *file) HLen() int          { return int(f.header.hlen) }
+func (f *file) RLen() int          { return int(f.header.rlen) }
+func (f *file) Lang() LangID       { return LangID(f.header.lang) }
+func (f *file) Changed() time.Time { return f.header.changedTime() }
 
-func (f *file) SetLangID(lang LangID) {
-	charset := charsets[codepages[lang]]
-	f.enc = mahonia.NewEncoder(charset)
-	f.dec = mahonia.NewDecoder(charset)
+func (f *file) SetLang(lang LangID) {
+	charset := lang.Charset()
+	f.encoder = mahonia.NewEncoder(charset)
+	f.decoder = mahonia.NewDecoder(charset)
 }
 
 func (f *file) Fields() []Field {
-	fields := make([]Field, len(f.fld))
+	fields := make([]Field, len(f.fields))
 
-	for idx := range f.fld {
-		fields[idx] = f.fld[idx]
+	for idx := range f.fields {
+		fields[idx] = f.fields[idx]
 	}
 
 	return fields
 }
 
 func (f *file) Row(idx int) (Row, error) {
-	if idx < 0 || f.hdr.RW <= uint32(idx) {
+	if idx < 0 || f.header.rows <= uint32(idx) {
 		return nil, errors.New("out of range")
 	}
 
@@ -59,47 +58,47 @@ func (f *file) Row(idx int) (Row, error) {
 }
 
 func (f *file) NewRow() (int, error) {
-	if f.hdr.RW == math.MaxUint32 {
+	if f.header.rows == math.MaxUint32 {
 		return 0, errors.New("cannot add more rows")
 	}
-	r := make([]byte, f.hdr.RL)
+	r := make([]byte, f.header.rlen)
 	r[0] = valid
-	if cap(f.dt)-len(f.dt) < len(r) {
-		dt := make([]byte, len(f.dt)+len(r))
-		copy(dt, f.dt[:len(f.dt)-1])
-		copy(dt[len(f.dt)-1:], r)
+	if cap(f.data)-len(f.data) < len(r) {
+		dt := make([]byte, len(f.data)+len(r))
+		copy(dt, f.data[:len(f.data)-1])
+		copy(dt[len(f.data)-1:], r)
 		dt[len(dt)-1] = eof
-		f.dt = dt
+		f.data = dt
 	} else {
-		f.dt = append(f.dt[:len(f.dt)-1], r...)
-		f.dt = append(f.dt, eof)
+		f.data = append(f.data[:len(f.data)-1], r...)
+		f.data = append(f.data, eof)
 	}
-	f.hdr.RW++
-	f.hdr.updateChanged()
-	return int(f.hdr.RW) - 1, nil
+	f.header.rows++
+	f.header.updateChanged()
+	return int(f.header.rows) - 1, nil
 }
 
 func (f *file) DelRow(idx int) error {
-	if idx < 0 || idx >= int(f.hdr.RW) {
+	if idx < 0 || idx >= int(f.header.rows) {
 		return errors.New("out of range")
 	}
 
-	dtidx := idx * int(f.hdr.RL)
-	if f.dt[dtidx] == deleted {
+	dtidx := idx * int(f.header.rlen)
+	if f.data[dtidx] == deleted {
 		return errors.New("already deleted")
 	}
-	f.dt[dtidx] = deleted
-	f.hdr.updateChanged()
+	f.data[dtidx] = deleted
+	f.header.updateChanged()
 	return nil
 }
 
 func (f *file) Deleted(idx int) (bool, error) {
-	if idx < 0 || idx >= int(f.hdr.RW) {
+	if idx < 0 || idx >= int(f.header.rows) {
 		return false, errors.New("out of range")
 	}
 
-	dtidx := idx * int(f.hdr.RL)
-	return f.dt[dtidx] == deleted, nil
+	dtidx := idx * int(f.header.rlen)
+	return f.data[dtidx] == deleted, nil
 }
 
 func (f *file) AddField(name string, typ FieldType, length, dec byte) error {
@@ -108,28 +107,31 @@ func (f *file) AddField(name string, typ FieldType, length, dec byte) error {
 }
 
 func (f *file) DelField(field string) error {
-	fldIdx, ok := f.fldmap[field]
+	fldIdx, ok := f.fieldsIdx[field]
 	if !ok {
 		return errors.New("field not found")
 	}
 
-	fld := f.fld[fldIdx]
-	buf := make([]byte, len(f.dt)-fld.Len()*f.Rows())
+	fld := f.fields[fldIdx]
+	buf := make([]byte, len(f.data)-fld.Len()*f.Rows())
 	var bufOffset int
 	var rowOffset int
 	for i := 0; i < f.Rows(); i++ {
-		rowOffset = i * f.RLen()
-		copy(buf[bufOffset:], f.dt[rowOffset:rowOffset+fld.offset])
-		copy(buf[bufOffset+fld.offset:], f.dt[rowOffset+fld.offset+fld.Len():rowOffset+f.RLen()])
+		copy(buf[bufOffset:], f.data[rowOffset:rowOffset+fld.offset])
+		copy(
+			buf[bufOffset+fld.offset:],
+			f.data[rowOffset+fld.offset+fld.Len():rowOffset+f.RLen()],
+		)
 		bufOffset += f.RLen() - fld.Len()
+		rowOffset += f.RLen()
 	}
 	buf[len(buf)-1] = eof
-	delete(f.fldmap, field)
-	copy(f.fld[fldIdx:], f.fld[fldIdx+1:])
-	f.fld = f.fld[:len(f.fld)-1]
-	f.hdr.HL -= 32
-	f.hdr.RL -= uint16(fld.Len())
-	f.dt = buf
+	delete(f.fieldsIdx, field)
+	copy(f.fields[fldIdx:], f.fields[fldIdx+1:])
+	f.fields = f.fields[:len(f.fields)-1]
+	f.header.hlen -= 32
+	f.header.rlen -= uint16(fld.Len())
+	f.data = buf
 	return nil
 }
 
@@ -138,15 +140,15 @@ func (f *file) Get(row int, field string) (string, error) {
 		return "", errors.New("out of range")
 	}
 
-	fldIdx, ok := f.fldmap[field]
+	fldIdx, ok := f.fieldsIdx[field]
 	if !ok {
 		return "", errors.New("field not found")
 	}
 
-	fld := f.fld[fldIdx]
+	fld := f.fields[fldIdx]
 	offset := row*f.RLen() + fld.offset
-	val := strings.TrimSpace(string(f.dt[offset : offset+fld.Len()]))
-	return f.dec.ConvertString(val), nil
+	val := strings.TrimSpace(string(f.data[offset : offset+fld.Len()]))
+	return f.decoder.ConvertString(val), nil
 }
 
 func (f *file) Set(row int, field, value string) error {
@@ -154,14 +156,14 @@ func (f *file) Set(row int, field, value string) error {
 		return errors.New("out of range")
 	}
 
-	fldIdx, ok := f.fldmap[field]
+	fldIdx, ok := f.fieldsIdx[field]
 	if !ok {
 		return errors.New("field not found")
 	}
 
-	fld := f.fld[fldIdx]
+	fld := f.fields[fldIdx]
 
-	cval := f.enc.ConvertString(value)
+	cval := f.encoder.ConvertString(value)
 	if len(cval) > fld.Len() {
 		return errors.New("value larger than the field length")
 	}
@@ -169,30 +171,28 @@ func (f *file) Set(row int, field, value string) error {
 	//TODO: types check
 
 	offset := row*f.RLen() + fld.offset
-	copy(f.dt[offset:], []byte(cval))
+	copy(f.data[offset:], []byte(cval))
 	return nil
 }
 
 func (f *file) Save(w io.Writer) error {
-	err := binary.Write(w, binary.LittleEndian, f.hdr)
-	if err != nil {
-		return err
-	}
+	buf := make([]byte, f.HLen()+f.RLen()*f.Rows()+1)
 
-	for _, fld := range f.fld {
-		err := binary.Write(w, binary.LittleEndian, fld)
-		if err != nil {
-			return err
-		}
+	// header
+	f.header.writeTo(buf)
+
+	// fields
+	for idx, fld := range f.fields {
+		fld.descr.writeTo(buf[32+idx*32:])
 	}
 
 	// header block terminator
-	if _, err := w.Write([]byte{hterm}); err != nil {
-		return err
-	}
+	buf[f.HLen()-1] = hterm
 
-	data := bytes.NewBuffer(f.dt)
-	if _, err := data.WriteTo(w); err != nil {
+	// rows
+	copy(buf[f.HLen():], f.data)
+
+	if _, err := w.Write(buf); err != nil {
 		return err
 	}
 

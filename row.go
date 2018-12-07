@@ -11,7 +11,7 @@ const (
 )
 
 func (r *row) Deleted() bool {
-	return r.f.dt[r.offset()] == deleted
+	return r.f.data[r.offset()] == deleted
 }
 
 func (r *row) Del() error {
@@ -27,5 +27,5 @@ func (r *row) Set(fld, val string) error {
 }
 
 func (r *row) offset() int {
-	return int(r.f.hdr.RL) * r.idx
+	return r.f.RLen() * r.idx
 }
