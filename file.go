@@ -7,8 +7,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"github.com/axgle/mahonia"
 )
 
 const (
@@ -23,8 +21,7 @@ type file struct {
 	data   []byte   // Rows + EOF
 
 	fieldsIdx map[string]int
-	encoder   mahonia.Encoder
-	decoder   mahonia.Decoder
+	converter textConverter
 }
 
 func (f *file) Rows() int          { return int(f.header.rows) }
@@ -34,9 +31,8 @@ func (f *file) Lang() LangID       { return LangID(f.header.lang) }
 func (f *file) Changed() time.Time { return f.header.changedTime() }
 
 func (f *file) SetLang(lang LangID) {
-	charset := lang.Charset()
-	f.encoder = mahonia.NewEncoder(charset)
-	f.decoder = mahonia.NewDecoder(charset)
+	f.header.lang = byte(lang)
+	f.converter = newCharmapsTextConverter(lang)
 }
 
 func (f *file) Fields() []Field {
@@ -148,7 +144,7 @@ func (f *file) Get(row int, field string) (string, error) {
 	fld := f.fields[fldIdx]
 	offset := row*f.RLen() + fld.offset
 	val := strings.TrimSpace(string(f.data[offset : offset+fld.Len()]))
-	return f.decoder.ConvertString(val), nil
+	return f.converter.Decode(val)
 }
 
 func (f *file) Set(row int, field, value string) error {
@@ -163,7 +159,10 @@ func (f *file) Set(row int, field, value string) error {
 
 	fld := f.fields[fldIdx]
 
-	cval := f.encoder.ConvertString(value)
+	cval, err := f.converter.Encode(value)
+	if err != nil {
+		return err
+	}
 	if len(cval) > fld.Len() {
 		return errors.New("value larger than the field length")
 	}

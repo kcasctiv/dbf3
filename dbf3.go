@@ -6,8 +6,6 @@ import (
 	"io"
 	"os"
 	"time"
-
-	"github.com/axgle/mahonia"
 )
 
 // File presents DBF file interface
@@ -34,7 +32,6 @@ type File interface {
 // New creates new empty DBF file
 func New(lang LangID) File {
 	now := time.Now()
-	charset := lang.Charset()
 	return &file{
 		header: header{
 			signature: 0x03, // dbase 3 without DBT
@@ -49,8 +46,7 @@ func New(lang LangID) File {
 		},
 		data:      []byte{eof}, // EOF only
 		fieldsIdx: make(map[string]int),
-		encoder:   mahonia.NewEncoder(charset),
-		decoder:   mahonia.NewDecoder(charset),
+		converter: newCharmapsTextConverter(lang),
 	}
 }
 
@@ -89,14 +85,12 @@ func Open(rd io.Reader) (File, error) {
 		return nil, err
 	}
 
-	charset := LangID(hdr.lang).Charset()
 	return &file{
 		header:    hdr,
 		fields:    fields,
 		data:      buf,
 		fieldsIdx: fieldsIdx,
-		encoder:   mahonia.NewEncoder(charset),
-		decoder:   mahonia.NewDecoder(charset),
+		converter: newCharmapsTextConverter(LangID(hdr.lang)),
 	}, nil
 }
 
@@ -144,11 +138,6 @@ type LangID byte
 // CodePage returns code page number for language driver
 func (l LangID) CodePage() string {
 	return codepages[l]
-}
-
-// Charset returns charset name for language driver
-func (l LangID) Charset() string {
-	return charsets[l.CodePage()]
 }
 
 // Supported language driver ids
@@ -220,103 +209,3 @@ const (
 	Lang203     LangID = 0xCB // Greek Windows
 	Lang204     LangID = 0xCC // Baltic Windows
 )
-
-var codepages = map[LangID]string{
-	LangDefault: "1252",
-	Lang1:       "437",
-	Lang2:       "850",
-	Lang3:       "1252",
-	Lang4:       "10000",
-	Lang8:       "865",
-	Lang9:       "437",
-	Lang10:      "850",
-	Lang11:      "437",
-	Lang13:      "437",
-	Lang14:      "850",
-	Lang15:      "437",
-	Lang16:      "850",
-	Lang17:      "437",
-	Lang18:      "850",
-	Lang19:      "932",
-	Lang20:      "850",
-	Lang21:      "437",
-	Lang22:      "850",
-	Lang23:      "865",
-	Lang24:      "437",
-	Lang25:      "437",
-	Lang26:      "850",
-	Lang27:      "437",
-	Lang28:      "863",
-	Lang29:      "850",
-	Lang31:      "852",
-	Lang34:      "852",
-	Lang35:      "852",
-	Lang36:      "860",
-	Lang37:      "850",
-	Lang38:      "866",
-	Lang55:      "850",
-	Lang64:      "852",
-	Lang77:      "936",
-	Lang78:      "949",
-	Lang79:      "950",
-	Lang80:      "874",
-	Lang87:      "1252",
-	Lang88:      "1252",
-	Lang89:      "1252",
-	Lang100:     "852",
-	Lang101:     "866",
-	Lang102:     "865",
-	Lang103:     "861",
-	Lang104:     "895",
-	Lang105:     "620",
-	Lang106:     "737",
-	Lang107:     "857",
-	Lang108:     "863",
-	Lang120:     "950",
-	Lang121:     "949",
-	Lang122:     "936",
-	Lang123:     "932",
-	Lang124:     "874",
-	Lang134:     "737",
-	Lang135:     "852",
-	Lang136:     "857",
-	Lang150:     "10007",
-	Lang151:     "10029",
-	Lang152:     "10006",
-	Lang200:     "1250",
-	Lang201:     "1251",
-	Lang202:     "1254",
-	Lang203:     "1253",
-	Lang204:     "1257",
-}
-
-var charsets = map[string]string{
-	"":      "windows-1252", // default
-	"437":   "IBM437",
-	"850":   "IBM850",
-	"1252":  "windows-1252",
-	"10000": "macos-0_2-10.2",
-	"866":   "IBM866",
-	"1257":  "windows-1257",
-	"865":   "ibm-865_P100-1995",
-	"861":   "ibm-861_P100-1995",
-	"1254":  "windows-1254",
-	"1251":  "windows-1251",
-	"1253":  "windows-1253",
-	"10006": "macos-6_2-10.4",
-	"1250":  "windows-1250",
-	"863":   "ibm-863_P100-1995",
-	"10029": "macos-29-10.2",
-	"874":   "windows-874",
-	"857":   "ibm-857_P100-1995",
-	"860":   "ibm-860_P100-1995",
-	"10007": "macos-7_3-10.2",
-	"852":   "IBM852",
-	"737":   "IBM737",
-	"932":   "windows-1252", // ???
-	"895":   "windows-1252", // ???
-	"936":   "windows-1252", // ???
-	"950":   "windows-1252", // ???
-	"620":   "windows-1252", // ???
-	"949":   "windows-1252", // ???
-}
