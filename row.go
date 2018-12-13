@@ -6,7 +6,7 @@ type row struct {
 }
 
 const (
-	valid   = 0x20
+	blank   = 0x20
 	deleted = 0x2A
 )
 

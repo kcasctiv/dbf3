@@ -57,18 +57,12 @@ func (f *file) NewRow() (int, error) {
 	if f.header.rows == math.MaxUint32 {
 		return 0, errors.New("cannot add more rows")
 	}
-	r := make([]byte, f.header.rlen)
-	r[0] = valid
-	if cap(f.data)-len(f.data) < len(r) {
-		dt := make([]byte, len(f.data)+len(r))
-		copy(dt, f.data[:len(f.data)-1])
-		copy(dt[len(f.data)-1:], r)
-		dt[len(dt)-1] = eof
-		f.data = dt
-	} else {
-		f.data = append(f.data[:len(f.data)-1], r...)
-		f.data = append(f.data, eof)
+	r := make([]byte, f.header.rlen+1)
+	for idx := range r {
+		r[idx] = blank
 	}
+	r[f.header.rlen] = eof
+	f.data = append(f.data[:len(f.data)-1], r...)
 	f.header.rows++
 	f.header.updateChanged()
 	return int(f.header.rows) - 1, nil
@@ -170,7 +164,19 @@ func (f *file) Set(row int, field, value string) error {
 	//TODO: types check
 
 	offset := row*f.RLen() + fld.offset
-	copy(f.data[offset:], []byte(cval))
+	if fld.Type() == Numeric {
+		copy(f.data[offset+fld.Len()-len(cval):], []byte(cval))
+		// add spaces to the start
+		for idx := offset; idx < offset+fld.Len()-len(cval); idx++ {
+			f.data[idx] = blank
+		}
+	} else {
+		copy(f.data[offset:], []byte(cval))
+		// add spaces to the end
+		for idx := len(cval) + offset; idx < offset+fld.Len(); idx++ {
+			f.data[idx] = blank
+		}
+	}
 	return nil
 }
 
