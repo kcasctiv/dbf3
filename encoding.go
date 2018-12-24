@@ -1,6 +1,8 @@
 package dbf3
 
 import (
+	"unicode"
+
 	"github.com/axgle/mahonia"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
@@ -192,4 +194,13 @@ var charsets = map[string]string{
 	"950":   "windows-1252", // ???
 	"620":   "windows-1252", // ???
 	"949":   "windows-1252", // ???
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] > unicode.MaxASCII {
+			return false
+		}
+	}
+	return true
 }

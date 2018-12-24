@@ -1,6 +1,7 @@
 package dbf3
 
 import (
+	"encoding/binary"
 	"errors"
 	"io"
 	"math"
@@ -92,8 +93,76 @@ func (f *file) Deleted(idx int) (bool, error) {
 }
 
 func (f *file) AddField(name string, typ FieldType, length, dec byte) error {
-	//TODO:
-	return errors.New("Not implemeted")
+	if !isASCII(name) {
+		return errors.New("only ASCII chars allowed in field name")
+	}
+	name = strings.TrimSpace(name)
+	if len(name) > 11 {
+		return errors.New("exceeded max field name length")
+	}
+	if _, exists := f.fieldsIdx[name]; exists {
+		return errors.New("field already exists")
+	}
+
+	switch typ {
+	case Date:
+		return f.addField(name, typ, 8, 0)
+	case Logical:
+		return f.addField(name, typ, 1, 0)
+	case Numeric:
+		// TODO: check length and dec
+		if length-dec < 2 {
+			return errors.New("decimal count must be lower at least 2 than length")
+		}
+		return f.addField(name, typ, length, dec)
+	case Character:
+		flen := binary.LittleEndian.Uint16([]byte{length, dec})
+		if flen > math.MaxInt16 {
+			return errors.New("exceeded max field length")
+		}
+		return f.addField(name, typ, length, dec)
+	default:
+		return errors.New("unsupported field type")
+	}
+}
+
+func (f *file) addField(name string, typ FieldType, length, dec byte) error {
+	dt := fieldDescr{
+		len: length,
+		dec: dec,
+		typ: byte(typ),
+	}
+	copy(dt.name[:], name)
+	idx := len(f.fields)
+	var offset int
+	if idx > 0 {
+		offset = f.fields[idx-1].offset + f.fields[idx-1].Len()
+	}
+	fld := newField(dt, idx, offset)
+	f.fields = append(f.fields, fld)
+	f.fieldsIdx[fld.Name()] = idx
+	f.header.hlen += 32
+	f.header.rlen += uint16(fld.Len())
+
+	if f.Rows() == 0 {
+		return nil
+	}
+
+	buf := make([]byte, f.Rows()*fld.Len())
+	oldLen := len(f.data)
+	f.data = append(f.data, buf...)
+	f.data[len(f.data)-1] = f.data[oldLen-1] // move EOF
+	oldRLen := f.RLen() - fld.Len()
+	for row := f.Rows() - 1; row >= 0; row-- {
+		// move old row data
+		copy(f.data[row*f.RLen():], f.data[row*oldRLen:(row+1)*oldRLen])
+		// fill new field bytes with blank values
+		for idx = row*f.RLen() + oldRLen; idx < (row+1)*f.RLen(); idx++ {
+			f.data[idx] = blank
+		}
+	}
+
+	return nil
 }
 
 func (f *file) DelField(field string) error {
