@@ -250,23 +250,26 @@ func (f *file) Set(row int, field, value string) error {
 }
 
 func (f *file) Save(w io.Writer) error {
-	buf := make([]byte, f.HLen()+f.RLen()*f.Rows()+1)
+	// write header
+	buf := make([]byte, f.HLen())
 
 	// header
 	f.header.writeTo(buf)
 
 	// fields
-	for idx, fld := range f.fields {
-		fld.descr.writeTo(buf[32+idx*32:])
+	for idx := range f.fields {
+		f.fields[idx].descr.writeTo(buf[32+idx*32:])
 	}
 
 	// header block terminator
 	buf[f.HLen()-1] = hterm
 
-	// rows
-	copy(buf[f.HLen():], f.data)
-
 	if _, err := w.Write(buf); err != nil {
+		return err
+	}
+
+	// write rows
+	if _, err := w.Write(f.data); err != nil {
 		return err
 	}
 
