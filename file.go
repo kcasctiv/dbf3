@@ -46,6 +46,11 @@ func (f *file) Fields() []Field {
 	return fields
 }
 
+func (f *file) HasField(field string) bool {
+	_, ok := f.fieldsIdx[field]
+	return ok
+}
+
 func (f *file) Row(idx int) (Row, error) {
 	if idx < 0 || f.header.rows <= uint32(idx) {
 		return nil, errors.New("out of range")

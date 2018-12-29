@@ -17,6 +17,7 @@ type File interface {
 	Lang() LangID
 	SetLang(lang LangID)
 	Fields() []Field
+	HasField(field string) bool
 	Row(idx int) (row Row, err error)
 	NewRow() (idx int, err error)
 	DelRow(idx int) error
