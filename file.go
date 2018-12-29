@@ -33,6 +33,7 @@ func (f *file) Changed() time.Time { return f.header.changedTime() }
 
 func (f *file) SetLang(lang LangID) {
 	f.header.lang = byte(lang)
+	f.header.updateChanged()
 	f.converter = newCharmapsTextConverter(lang)
 }
 
@@ -148,6 +149,7 @@ func (f *file) addField(name string, typ FieldType, length, dec byte) error {
 	f.fieldsIdx[fld.Name()] = idx
 	f.header.hlen += 32
 	f.header.rlen += uint16(fld.Len())
+	f.header.updateChanged()
 
 	if f.Rows() == 0 {
 		return nil
@@ -195,6 +197,7 @@ func (f *file) DelField(field string) error {
 	f.fields = f.fields[:len(f.fields)-1]
 	f.header.hlen -= 32
 	f.header.rlen -= uint16(fld.Len())
+	f.header.updateChanged()
 	f.data = buf
 	return nil
 }
@@ -251,6 +254,7 @@ func (f *file) Set(row int, field, value string) error {
 			f.data[idx] = blank
 		}
 	}
+	f.header.updateChanged()
 	return nil
 }
 
