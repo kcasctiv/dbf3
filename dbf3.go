@@ -10,23 +10,41 @@ import (
 
 // File presents DBF file interface
 type File interface {
+	// Changed returns date of last file change
 	Changed() time.Time
+	// Rows returns rows count
 	Rows() int
+	// HLen returns length of file header
 	HLen() int
+	// RLen returns length of file row
 	RLen() int
+	// Lang returns language driver identifier
 	Lang() LangID
+	// SetLang sets language driver of file
 	SetLang(lang LangID)
+	// Fields returns fields list
 	Fields() []Field
+	// HasField checks if file contains field with specified name
 	HasField(field string) bool
+	// Row returns row with specified index
 	Row(idx int) (row Row, err error)
+	// NewRow creates new row and returns its index
 	NewRow() (idx int, err error)
+	// DelRow marks row with specified index as deleted
 	DelRow(idx int) error
-	Deleted(idx int) (bool, error)
+	// Deleted checks if row with specified index marked as deleted
+	Deleted(idx int) (deleted bool, err error)
+	// AddField adds new field in file (in the end of row)
 	AddField(name string, typ FieldType, length, dec byte) error
+	// DelField deletes field from file (with all values of that field in all rows)
 	DelField(field string) error
+	// Get returns field value from row with specified index
 	Get(row int, field string) (value string, err error)
+	// Set sets field value in row with specified index
 	Set(row int, field, value string) error
-	Save(io.Writer) error
+	// Save writes dbf into specified io.Writer
+	Save(w io.Writer) error
+	// SaveFile saves dbf into file with specified name
 	SaveFile(fileName string) error
 }
 
