@@ -1,3 +1,4 @@
+// Package dbf3 intended for reading and writing xbase/dbase III files
 package dbf3
 
 import (

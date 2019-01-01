@@ -1,5 +1,7 @@
 # Golang package for read and write dbf files
 
+[![GoDoc](https://godoc.org/github.com/kcasctiv/dbf3?status.svg)](https://godoc.org/github.com/kcasctiv/dbf3)
+
 README is currently under construction
 
 ## Examples
@@ -65,3 +67,4 @@ err := file.Save(writer)
 * Complete README
 * Add missed charsets
 * Do something with `EncodingEngine`
+* Go modules
