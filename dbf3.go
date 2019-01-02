@@ -35,6 +35,8 @@ type File interface {
 	DelRow(idx int) error
 	// Deleted checks if row with specified index marked as deleted
 	Deleted(idx int) (deleted bool, err error)
+	// Pack removes rows marked as deleted
+	Pack() error
 	// AddField adds new field in file (in the end of row)
 	AddField(name string, typ FieldType, length, dec byte) error
 	// DelField deletes field from file (with all values of that field in all rows)

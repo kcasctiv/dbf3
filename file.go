@@ -98,6 +98,36 @@ func (f *file) Deleted(idx int) (bool, error) {
 	return f.data[dtidx] == deleted, nil
 }
 
+func (f *file) Pack() error {
+	var deletedCount int
+	for row := 0; row < f.Rows(); row++ {
+		deleted, err := f.Deleted(row)
+		if err != nil {
+			return err
+		}
+		if deleted {
+			deletedCount++
+			continue
+		}
+
+		if deletedCount == 0 {
+			continue
+		}
+
+		dstidx := (row - deletedCount) * f.RLen()
+		srcidx := row * f.RLen()
+		copy(f.data[dstidx:], f.data[srcidx:srcidx+f.RLen()])
+	}
+
+	if deletedCount > 0 {
+		f.header.rows -= uint32(deletedCount)
+		f.data = f.data[:f.Rows()*f.RLen()+1]
+		f.data[len(f.data)-1] = eof
+	}
+
+	return nil
+}
+
 func (f *file) AddField(name string, typ FieldType, length, dec byte) error {
 	if !isASCII(name) {
 		return errors.New("only ASCII chars allowed in field name")
