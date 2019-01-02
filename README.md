@@ -61,7 +61,6 @@ err := file.Save(writer)
 * Benchmarks?
 * Go badges
 * Check values when set
-* `Pack` method (removes deleted rows)
 * Add zeros to the floats end (for padding by scale)
 * Add more checks for `AddField`
 * Complete README

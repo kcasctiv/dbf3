@@ -14,7 +14,7 @@ type EncodingEngine int
 // Supported encoding engines
 const (
 	Charmaps EncodingEngine = iota // Uses golang.org/x/text/encoding and charmaps
-	Mahonia                        // Users github.com/axgle/mahonia
+	Mahonia                        // Uses github.com/axgle/mahonia
 )
 
 type textConverter interface {
