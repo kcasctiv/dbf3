@@ -129,9 +129,13 @@ func OpenFile(fileName string) (File, error) {
 
 // Field presents DBF field descriptor
 type Field interface {
+	// Name returns name of the field
 	Name() string
+	// Type returns type of the field
 	Type() FieldType
+	// Len returns length of the field
 	Len() int
+	// Dec returns decimals count of the field
 	Dec() byte
 }
 
@@ -148,9 +152,13 @@ const (
 
 // Row presents DBF row interface
 type Row interface {
+	// Deleted checks if row marked as deleted
 	Deleted() bool
+	// Del marks row as deleted
 	Del() error
+	// Get returns field value
 	Get(field string) (value string, err error)
+	// Set sets field value
 	Set(field, value string) error
 }
 
@@ -163,6 +171,10 @@ func (l LangID) CodePage() string {
 }
 
 // Supported language driver ids
+//
+// List of drivers and mapped code pages taken
+// from http://www.autopark.ru/ASBProgrammerGuide/DBFSTRUC.HT
+// and maybe not full and/or not correct
 const (
 	LangDefault LangID = 0x00 // Use default driver
 	Lang1       LangID = 0x01 // US MS-DOS
@@ -179,7 +191,7 @@ const (
 	Lang16      LangID = 0x10 // German OEM*
 	Lang17      LangID = 0x11 // Italian OEM
 	Lang18      LangID = 0x12 // Italian OEM*
-	Lang19      LangID = 0x13 // Japanese Shift-JIS
+	Lang19      LangID = 0x13 // Japanese Shift-JIS 				(not implemented)
 	Lang20      LangID = 0x14 // Spanish OEM*
 	Lang21      LangID = 0x15 // Swedish OEM
 	Lang22      LangID = 0x16 // Swedish OEM*
@@ -198,9 +210,9 @@ const (
 	Lang38      LangID = 0x26 // Russian OEM
 	Lang55      LangID = 0x37 // English OEM (US)*
 	Lang64      LangID = 0x40 // Romanian OEM
-	Lang77      LangID = 0x4D // Chinese GBK (PRC)
-	Lang78      LangID = 0x4E // Korean (ANSI/OEM)
-	Lang79      LangID = 0x4F // Chinese Big5 (Taiwan)
+	Lang77      LangID = 0x4D // Chinese GBK (PRC) 					(not implemented)
+	Lang78      LangID = 0x4E // Korean (ANSI/OEM) 					(not implemented)
+	Lang79      LangID = 0x4F // Chinese Big5 (Taiwan) 				(not implemented)
 	Lang80      LangID = 0x50 // Thai (ANSI/OEM)
 	Lang87      LangID = 0x57 // ANSI
 	Lang88      LangID = 0x58 // Western European ANSI
@@ -209,15 +221,15 @@ const (
 	Lang101     LangID = 0x65 // Russian MS-DOS
 	Lang102     LangID = 0x66 // Nordic MS-DOS
 	Lang103     LangID = 0x67 // Icelandic MS-DOS
-	Lang104     LangID = 0x68 // Kamenicky (Czech) MS-DOS
-	Lang105     LangID = 0x69 // Mazovia (Polish) MS-DOS
+	Lang104     LangID = 0x68 // Kamenicky (Czech) MS-DOS 			(not implemented)
+	Lang105     LangID = 0x69 // Mazovia (Polish) MS-DOS 			(not implemented)
 	Lang106     LangID = 0x6A // Greek MS-DOS (437G)
 	Lang107     LangID = 0x6B // Turkish MS-DOS
 	Lang108     LangID = 0x6C // French-Canadian MS-DOS
-	Lang120     LangID = 0x78 // Taiwan Big 5
-	Lang121     LangID = 0x79 // Hangul (Wansung)
-	Lang122     LangID = 0x7A // PRC GBK
-	Lang123     LangID = 0x7B // Japanese Shift-JIS
+	Lang120     LangID = 0x78 // Taiwan Big 5 						(not implemented)
+	Lang121     LangID = 0x79 // Hangul (Wansung)					(not implemented)
+	Lang122     LangID = 0x7A // PRC GBK							(not implemented)
+	Lang123     LangID = 0x7B // Japanese Shift-JIS					(not implemented)
 	Lang124     LangID = 0x7C // Thai Windows/MS–DOS
 	Lang134     LangID = 0x86 // Greek OEM
 	Lang135     LangID = 0x87 // Slovenian OEM

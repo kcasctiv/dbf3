@@ -8,10 +8,12 @@ import (
 	"golang.org/x/text/encoding/charmap"
 )
 
-// EncodingEngine presents type of file encoding engine
+// EncodingEngine presents type of file encoding engine (not used yet)
 type EncodingEngine int
 
-// Supported encoding engines
+// Supported encoding engines (not used yet)
+//
+// Currently always used charmaps. It works faster, but uses more memory
 const (
 	Charmaps EncodingEngine = iota // Uses golang.org/x/text/encoding and charmaps
 	Mahonia                        // Uses github.com/axgle/mahonia
@@ -135,34 +137,34 @@ var codepages = map[LangID]string{
 }
 
 var charmaps = map[string]*charmap.Charmap{
-	"":      charmap.Windows1252,
+	"":      charmap.Windows1252, // default
 	"437":   charmap.CodePage437,
 	"850":   charmap.CodePage850,
 	"1252":  charmap.Windows1252,
-	"10000": charmap.Macintosh, // ?
+	"10000": charmap.Macintosh, // it's correct?
 	"866":   charmap.CodePage866,
 	"1257":  charmap.Windows1257,
 	"865":   charmap.CodePage865,
-	"861":   nil, // ?
 	"1254":  charmap.Windows1254,
 	"1251":  charmap.Windows1251,
 	"1253":  charmap.Windows1253,
-	"10006": nil, // ?
 	"1250":  charmap.Windows1250,
 	"863":   charmap.CodePage863,
-	"10029": nil, // ?
 	"874":   charmap.Windows874,
-	"857":   nil, // ?
 	"860":   charmap.CodePage860,
-	"10007": charmap.MacintoshCyrillic, // ?
+	"10007": charmap.MacintoshCyrillic, // it's correct?
 	"852":   charmap.CodePage852,
-	"737":   nil, // ?
-	"932":   nil, // ???
-	"895":   nil, // ???
-	"936":   nil, // ???
-	"950":   nil, // ???
-	"620":   nil, // ???
-	"949":   nil, // ???
+	"861":   charmap.Windows1252, // Temporary solution. Original charmap currently not exists or not found yet
+	"10006": charmap.Windows1252, // Temporary solution. Original charmap currently not exists or not found yet
+	"10029": charmap.Windows1252, // Temporary solution. Original charmap currently not exists or not found yet
+	"857":   charmap.Windows1252, // Temporary solution. Original charmap currently not exists or not found yet
+	"737":   charmap.Windows1252, // Temporary solution. Original charmap currently not exists or not found yet
+	"932":   charmap.Windows1252, // Temporary solution. Original charmap currently not exists or not found yet
+	"895":   charmap.Windows1252, // Temporary solution. Original charmap currently not exists or not found yet
+	"936":   charmap.Windows1252, // Temporary solution. Original charmap currently not exists or not found yet
+	"950":   charmap.Windows1252, // Temporary solution. Original charmap currently not exists or not found yet
+	"620":   charmap.Windows1252, // Temporary solution. Original charmap currently not exists or not found yet
+	"949":   charmap.Windows1252, // Temporary solution. Original charmap currently not exists or not found yet
 }
 
 var charsets = map[string]string{
@@ -188,12 +190,12 @@ var charsets = map[string]string{
 	"10007": "macos-7_3-10.2",
 	"852":   "IBM852",
 	"737":   "IBM737",
-	"932":   "windows-1252", // ???
-	"895":   "windows-1252", // ???
-	"936":   "windows-1252", // ???
-	"950":   "windows-1252", // ???
-	"620":   "windows-1252", // ???
-	"949":   "windows-1252", // ???
+	"932":   "windows-1252", // Temporary solution. Original charset currently not exists or not found yet
+	"895":   "windows-1252", // Temporary solution. Original charset currently not exists or not found yet
+	"936":   "windows-1252", // Temporary solution. Original charset currently not exists or not found yet
+	"950":   "windows-1252", // Temporary solution. Original charset currently not exists or not found yet
+	"620":   "windows-1252", // Temporary solution. Original charset currently not exists or not found yet
+	"949":   "windows-1252", // Temporary solution. Original charset currently not exists or not found yet
 }
 
 func isASCII(s string) bool {
