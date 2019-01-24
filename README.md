@@ -1,6 +1,6 @@
 # Golang package for read and write dbf files
 
-[![Build Status](https://travis-ci.com/kcasctiv/dbf3.svg?branch=master)](https://travis-ci.com/kcasctiv/dbf3)
+[![Build Status](https://travis-ci.org/kcasctiv/dbf3.svg?branch=master)](https://travis-ci.org/kcasctiv/dbf3)
 [![GoDoc](https://godoc.org/github.com/kcasctiv/dbf3?status.svg)](https://godoc.org/github.com/kcasctiv/dbf3)
 
 README is currently under construction
