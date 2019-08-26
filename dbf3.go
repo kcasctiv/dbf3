@@ -51,15 +51,50 @@ type File interface {
 	SaveFile(fileName string) error
 }
 
+type options struct {
+	lang     LangID
+	convType TextConverterType
+}
+
+func newDefaultOptions() *options {
+	return &options{
+		lang:     LangDefault,
+		convType: CharmapsConverter,
+	}
+}
+
+// Option presents DBF option
+type Option func(*options)
+
+// WithLang presents language option
+func WithLang(lang LangID) func(*options) {
+	return func(o *options) {
+		o.lang = lang
+	}
+}
+
+// WithTextConverter presents text converter option
+func WithTextConverter(typ TextConverterType) func(*options) {
+	return func(o *options) {
+		o.convType = typ
+	}
+}
+
 // New creates new empty DBF file
-func New(lang LangID) File {
+func New(opts ...Option) File {
 	now := time.Now()
+
+	o := newDefaultOptions()
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	return &file{
 		header: header{
 			signature: 0x03, // dbase 3 without DBT
 			hlen:      33,   // header + terminator
 			rlen:      1,    // no fields + deletion flag
-			lang:      byte(lang),
+			lang:      byte(o.lang),
 			changed: [3]byte{
 				byte(now.Year() - 1900),
 				byte(now.Month()),
@@ -68,27 +103,31 @@ func New(lang LangID) File {
 		},
 		data:      []byte{eof}, // EOF only
 		fieldsIdx: make(map[string]int),
-		converter: newCharmapsTextConverter(lang),
+		converter: newTextConverter(o.convType, o.lang),
 	}
 }
 
 // Open opens DBF from reader
-func Open(rd io.Reader) (File, error) {
+func Open(rd io.Reader, opts ...Option) (File, error) {
 	r := bufio.NewReader(rd)
+
 	buf := make([]byte, 32)
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return nil, err
 	}
+
 	hdr := readHeader(buf)
 
 	fields := make([]*field, (int(hdr.hlen)-33)/32)
 	fieldsIdx := make(map[string]int)
 	offset := 1 // fields starts after deletion flag
 	var fd fieldDescr
+
 	buf = make([]byte, int(hdr.hlen)-32)
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return nil, err
 	}
+
 	for idx := range fields {
 		fd.readFrom(buf[idx*32:])
 
@@ -107,24 +146,33 @@ func Open(rd io.Reader) (File, error) {
 		return nil, err
 	}
 
+	o := newDefaultOptions()
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	if o.lang != LangDefault {
+		hdr.lang = byte(o.lang)
+	}
+
 	return &file{
 		header:    hdr,
 		fields:    fields,
 		data:      buf,
 		fieldsIdx: fieldsIdx,
-		converter: newCharmapsTextConverter(LangID(hdr.lang)),
+		converter: newTextConverter(o.convType, LangID(hdr.lang)),
 	}, nil
 }
 
 // OpenFile opens DBF from file
-func OpenFile(fileName string) (File, error) {
+func OpenFile(fileName string, opts ...Option) (File, error) {
 	file, err := os.Open(fileName)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	return Open(file)
+	return Open(file, opts...)
 }
 
 // Field presents DBF field descriptor

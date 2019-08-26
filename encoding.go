@@ -8,21 +8,37 @@ import (
 	"golang.org/x/text/encoding/charmap"
 )
 
-// EncodingEngine presents type of file encoding engine (not used yet)
-type EncodingEngine int
+// TextConverterType presents type of text converter
+// between UTF-8 and DBF encoding
+type TextConverterType int
 
-// Supported encoding engines (not used yet)
-//
-// Currently always used charmaps. It works faster, but uses more memory
+// Supported types of text converter
 const (
-	Charmaps EncodingEngine = iota // Uses golang.org/x/text/encoding and charmaps
-	Mahonia                        // Uses github.com/axgle/mahonia
+	// Uses golang.org/x/text/encoding and charmaps.
+	// Works faster, but uses more memory
+	CharmapsConverter TextConverterType = iota
+
+	// Uses github.com/axgle/mahonia.
+	// Works slower, but uses less memory
+	MahoniaConverter
 )
 
 type textConverter interface {
-	Engine() EncodingEngine
+	Type() TextConverterType
 	Encode(string) (string, error)
 	Decode(string) (string, error)
+}
+
+func newTextConverter(typ TextConverterType, lang LangID) textConverter {
+	switch typ {
+
+	case MahoniaConverter:
+		return newMahoniaTextConverter(lang)
+
+	default:
+		return newCharmapsTextConverter(lang)
+
+	}
 }
 
 type charmapsTextConverter struct {
@@ -38,10 +54,14 @@ func newCharmapsTextConverter(lang LangID) textConverter {
 	}
 }
 
-func (ctc *charmapsTextConverter) Engine() EncodingEngine { return Charmaps }
+func (ctc *charmapsTextConverter) Type() TextConverterType {
+	return CharmapsConverter
+}
+
 func (ctc *charmapsTextConverter) Encode(s string) (string, error) {
 	return ctc.encoder.String(s)
 }
+
 func (ctc *charmapsTextConverter) Decode(s string) (string, error) {
 	return ctc.decoder.String(s)
 }
@@ -59,10 +79,14 @@ func newMahoniaTextConverter(lang LangID) textConverter {
 	}
 }
 
-func (mtc *mahoniaTextConverter) Engine() EncodingEngine { return Mahonia }
+func (mtc *mahoniaTextConverter) Type() TextConverterType {
+	return MahoniaConverter
+}
+
 func (mtc *mahoniaTextConverter) Encode(s string) (string, error) {
 	return mtc.encoder.ConvertString(s), nil
 }
+
 func (mtc *mahoniaTextConverter) Decode(s string) (string, error) {
 	return mtc.decoder.ConvertString(s), nil
 }

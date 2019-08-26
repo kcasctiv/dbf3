@@ -1,4 +1,4 @@
-# Golang package for read and write dbf files
+# Golang package for reading and writing dbf files
 
 [![Build Status](https://travis-ci.org/kcasctiv/dbf3.svg?branch=master)](https://travis-ci.org/kcasctiv/dbf3)
 [![GoDoc](https://godoc.org/github.com/kcasctiv/dbf3?status.svg)](https://godoc.org/github.com/kcasctiv/dbf3)
@@ -15,7 +15,7 @@ file, err := dbf3.OpenFile("filename.dbf")
 file, err := dbf3.Open(reader)
 
 // Create new
-file := dbf3.New(langDriver)
+file := dbf3.New(dbf3.WithLang(langDriver))
 
 // Change language driver
 file.SetLang(newDriver)
@@ -66,5 +66,4 @@ err := file.Save(writer)
 * Add more checks for `AddField`
 * Complete README
 * Add missed charsets
-* Do something with `EncodingEngine`
 * Go modules
