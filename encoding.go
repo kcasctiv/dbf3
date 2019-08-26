@@ -8,54 +8,30 @@ import (
 	"golang.org/x/text/encoding/charmap"
 )
 
-// TextConverterType presents type of text converter
+// TextConverter presents interface of text converter
 // between UTF-8 and DBF encoding
-type TextConverterType int
-
-// Supported types of text converter
-const (
-	// Uses golang.org/x/text/encoding and charmaps.
-	// Works faster, but uses more memory
-	CharmapsConverter TextConverterType = iota
-
-	// Uses github.com/axgle/mahonia.
-	// Works slower, but uses less memory
-	MahoniaConverter
-)
-
-type textConverter interface {
-	Type() TextConverterType
+type TextConverter interface {
 	Encode(string) (string, error)
 	Decode(string) (string, error)
 }
 
-func newTextConverter(typ TextConverterType, lang LangID) textConverter {
-	switch typ {
-
-	case MahoniaConverter:
-		return newMahoniaTextConverter(lang)
-
-	default:
-		return newCharmapsTextConverter(lang)
-
-	}
-}
+// TextConverterCtor presents constructor function for TextConverter
+type TextConverterCtor func(LangID) TextConverter
 
 type charmapsTextConverter struct {
 	encoder *encoding.Encoder
 	decoder *encoding.Decoder
 }
 
-func newCharmapsTextConverter(lang LangID) textConverter {
+// CharmapsTextConverter creates converter,
+// which uses golang.org/x/text/encoding and charmaps.
+// Works faster, but uses more memory
+func CharmapsTextConverter(lang LangID) TextConverter {
 	mc := charmaps[lang.CodePage()]
 	return &charmapsTextConverter{
 		decoder: mc.NewDecoder(),
 		encoder: mc.NewEncoder(),
 	}
-}
-
-func (ctc *charmapsTextConverter) Type() TextConverterType {
-	return CharmapsConverter
 }
 
 func (ctc *charmapsTextConverter) Encode(s string) (string, error) {
@@ -71,16 +47,15 @@ type mahoniaTextConverter struct {
 	decoder mahonia.Decoder
 }
 
-func newMahoniaTextConverter(lang LangID) textConverter {
+// MahoniaTextConverter creates converter,
+// which uses github.com/axgle/mahonia.
+// Works slower, but uses less memory
+func MahoniaTextConverter(lang LangID) TextConverter {
 	charset := charsets[lang.CodePage()]
 	return &mahoniaTextConverter{
 		encoder: mahonia.NewEncoder(charset),
 		decoder: mahonia.NewDecoder(charset),
 	}
-}
-
-func (mtc *mahoniaTextConverter) Type() TextConverterType {
-	return MahoniaConverter
 }
 
 func (mtc *mahoniaTextConverter) Encode(s string) (string, error) {

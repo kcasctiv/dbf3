@@ -53,13 +53,13 @@ type File interface {
 
 type options struct {
 	lang     LangID
-	convType TextConverterType
+	convCtor TextConverterCtor
 }
 
 func newDefaultOptions() *options {
 	return &options{
 		lang:     LangDefault,
-		convType: CharmapsConverter,
+		convCtor: CharmapsTextConverter,
 	}
 }
 
@@ -74,9 +74,11 @@ func WithLang(lang LangID) func(*options) {
 }
 
 // WithTextConverter presents text converter option
-func WithTextConverter(typ TextConverterType) func(*options) {
+func WithTextConverter(ctor TextConverterCtor) func(*options) {
 	return func(o *options) {
-		o.convType = typ
+		if ctor != nil {
+			o.convCtor = ctor
+		}
 	}
 }
 
@@ -101,9 +103,10 @@ func New(opts ...Option) File {
 				byte(now.Day()),
 			},
 		},
-		data:      []byte{eof}, // EOF only
-		fieldsIdx: make(map[string]int),
-		converter: newTextConverter(o.convType, o.lang),
+		data:          []byte{eof}, // EOF only
+		fieldsIdx:     make(map[string]int),
+		converterCtor: o.convCtor,
+		converter:     o.convCtor(o.lang),
 	}
 }
 
@@ -156,11 +159,12 @@ func Open(rd io.Reader, opts ...Option) (File, error) {
 	}
 
 	return &file{
-		header:    hdr,
-		fields:    fields,
-		data:      buf,
-		fieldsIdx: fieldsIdx,
-		converter: newTextConverter(o.convType, LangID(hdr.lang)),
+		header:        hdr,
+		fields:        fields,
+		data:          buf,
+		fieldsIdx:     fieldsIdx,
+		converterCtor: o.convCtor,
+		converter:     o.convCtor(LangID(hdr.lang)),
 	}, nil
 }
 

@@ -21,8 +21,9 @@ type file struct {
 	fields []*field // Fields
 	data   []byte   // Rows + EOF
 
-	fieldsIdx map[string]int
-	converter textConverter
+	fieldsIdx     map[string]int
+	converter     TextConverter
+	converterCtor TextConverterCtor
 }
 
 func (f *file) Rows() int          { return int(f.header.rows) }
@@ -34,7 +35,7 @@ func (f *file) Changed() time.Time { return f.header.changedTime() }
 func (f *file) SetLang(lang LangID) {
 	f.header.lang = byte(lang)
 	f.header.updateChanged()
-	f.converter = newCharmapsTextConverter(lang)
+	f.converter = f.converterCtor(lang)
 }
 
 func (f *file) Fields() []Field {
